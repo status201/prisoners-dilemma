@@ -206,22 +206,6 @@ function playTournament() {
   
   for (let playerI = 0; playerI < totalPlayers; playerI++) {
     for (let opponentI = 0; opponentI < totalPlayers; opponentI++) {
-      if (tournamentScore[activePlayers.val[opponentI] +'-'+ activePlayers.val[playerI]] !== undefined) {
-        // already played this game
-        let reversedScore = tournamentScore[activePlayers.val[opponentI] +'-'+ activePlayers.val[playerI]].toReversed();
-        tournamentScore[activePlayers.val[playerI] +'-'+ activePlayers.val[opponentI]] = reversedScore;
-        //console.log(players[playerI] + ' already played ' + players[opponentI]);
-        playersScore[activePlayers.val[playerI]]  = (playersScore[activePlayers.val[playerI]] || 0 ) + reversedScore[0];
-        playersOpponentScore[activePlayers.val[playerI]]  = (playersOpponentScore[activePlayers.val[playerI]] || 0 ) + reversedScore[1];
-        
-        playersScoreArray[playerI] = [ 
-          activePlayers.val[playerI], 
-          playersScore[activePlayers.val[playerI]], 
-          playersOpponentScore[activePlayers.val[playerI]],
-          playersScore[activePlayers.val[playerI]] + playersOpponentScore[activePlayers.val[playerI]]
-        ];
-        continue; 
-      }
       tournamentScore[activePlayers.val[playerI] +'-'+ activePlayers.val[opponentI]] = 
           playTheGame(activePlayers.val[playerI], activePlayers.val[opponentI]);
 
