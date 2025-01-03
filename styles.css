@@ -1,0 +1,230 @@
+* {
+    box-sizing: border-box;
+  }
+  
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    margin: 0;
+    padding: 0;
+    font-size: 13px;
+  }
+  
+  table {
+    border: none;
+  }
+  table.generated {
+    width: 100%;
+    margin-bottom: 20px;
+  }
+  .generated tr:nth-child(even) td {
+    background-color: #eee;
+  }
+  .generated tr:nth-child(odd) td {
+    background-color: #ddd;
+  }
+  .generated tr:hover td {
+    background-color: #fff;
+  }
+  th {
+    text-align: left;
+    padding: 5px 10px;
+    border: 1px solid #eee;
+  }
+  td {
+    text-align:left;
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+  }
+  
+  table.pointsMatrix th {
+    border-color: #ddd;
+  }
+  table.pointsMatrix td {
+    background: #fefefe;
+  }
+  
+  .header {
+    grid-area: header;
+    background-color: #f1f1f1;
+    padding: 10px;
+    text-align: center;
+    box-shadow: 5px 5px 6px rgba(0,0,0,0.2);
+    position:relative;
+  }
+  h2 {
+    font-size: 24px;
+    line-height: 24px;
+  }
+  
+  h3 {
+    font-size: 20px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px dotted #bbb;
+    margin-bottom: 30px;
+  }
+  
+  hr {
+    border: none;
+    border-top: 1px solid #ddd;
+    margin: 20px 0;
+  }
+  
+  #settings {
+    background-color:#f1f1f1;
+  }
+  #settings h3 {
+    position: sticky;
+    top: 8px;
+    background-color: inherit;
+  }
+  #result {
+    background-color:#fefefe;
+  }
+  #info {
+    background-color:#f1f1f1;
+  }
+  
+  /* Form elements*/
+  .form input {
+    margin-bottom: 20px;
+  }
+  .form button {
+    background: #fff;
+    border: 1px solid #000;
+    padding: 5px 20px;
+    font-weight: bold;
+    cursor: pointer;
+    position:absolute;
+    right: 0;
+    top: 8px;
+  }
+  .form button:hover {
+   background: #eee; 
+  }
+  .form button.loading {
+    background: #ddd;
+    padding-right: 40px;
+  }
+  .form button.loading:before {
+    content: '';
+    position: absolute;
+    right: 18px;
+    top: 5px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: linear-gradient(#333, #ddd);
+    animation-name: spin;
+    animation-duration: 2s;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;
+  } 
+  .form button.loading:after {
+    content: '';
+    position: absolute;
+    right: 21px;
+    top: 8px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ddd;
+  } 
+  @keyframes spin {
+      from {
+          transform: rotate(0deg);
+      }
+      to { 
+          transform: rotate(360deg);
+      }
+  }
+  .form.input.number.random-true{
+    display: none;
+  }
+  .form.select.multiple select{
+    height: 240px;
+    margin-bottom: 20px;
+  }
+  .form.select.multiple.tournament-false{
+    display: none;
+  }
+  .form.select.player{
+    margin-bottom: 20px;
+  }
+  .form.select.player.tournament-true{
+    display: none;
+  }
+  
+  .form.input.number.points-settings {
+    margin-bottom: 10px;
+  }
+  
+  .form.input.number.points-settings label{
+    display: block;
+    margin-bottom: 10px;
+  }
+  .form.input.number.points-settings input{
+    width: 42px;
+    display: inline-block;
+    margin-right: 5px;
+  }
+  
+  
+  /* The grid container */
+  .grid-container {
+    display: grid;
+    grid-template-areas: 
+      'header header header header' 
+      'left middle middle right' 
+      'footer footer footer footer';
+    grid-template-columns: 1fr 1fr 1fr;
+    /*grid-column-gap: 10px;*/
+  } 
+  
+  .left,
+  .middle,
+  .right {
+    padding: 0px 20px 40px;
+    width: auto;
+    height: calc(100vh - 132px);
+    overflow: auto;
+  }
+  
+  .left {
+    grid-area: left;
+  }
+  
+  .middle {
+    grid-area: middle;
+  }
+  
+  .right {
+    grid-area: right;
+  }
+  
+  .footer {
+    grid-area: footer;
+    background-color: #f1f1f1;
+    padding: 5px 10px;
+    font-size: 12px;
+    line-height: 12px;
+    text-align: center;
+    box-shadow: 0 -5px 6px rgba(0,0,0,0.2);
+  }
+  
+  @media (max-width: 1000px) {
+    .grid-container  {
+      grid-template-areas: 
+        'header header header header header header' 
+        'left left left left left left' 
+        'middle middle middle middle middle middle' 
+        'right right right right right right' 
+        'footer footer footer footer footer footer';
+    }
+    .left,
+    .middle,
+    .right {
+      height: auto;
+      overflow: none;
+    }
+  }
