@@ -1,12 +1,12 @@
 /*
 * Prisoner's Dilemma Tournament
 *
-* This Pen includes Pen https://codepen.io/status201/pen/dPbVyeq 
+* This Pen includes Pen https://codepen.io/status201/pen/dPbVyeq (or players.js)
 * which holds the different player's strategies
 * and the players array & class
 *
 * TODO
-* - add button to clear results
+* - add button to clear tournament results
 * - add (configurable) generations, where succesful players survive and play against other succesful players
 *
 * - check the cumulative scores
@@ -28,6 +28,8 @@ const points11 = van.state(3) // Player & Opponent both cooperate
 const points00 = van.state(1) // Player & Opponent both defect
 const points10 = van.state(0) // Player cooperates, Opponent defects
 
+let tournamentCounter = 0;
+
 const loading = van.state(false);
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -35,7 +37,7 @@ const List = ({items}) => ul(items.map(it => li(it)));
 
 const Select = ({options, selected, onchange, defaultSelected}) => select(
   {onchange: onchange},
-  options.map(op => defaultSelected == op ? option({'selected': 'selected'}, op) : option(op))
+  options.map(op => defaultSelected === op ? option({'selected': 'selected'}, op) : option(op))
 );
 
 const MultipleSelect = ({options, selected, onchange}) => select(
@@ -53,7 +55,7 @@ const Table = ({head, data}) => table({'class': 'generated'},
 
 const PlayButton = () => div(
   {'class': 'form button'},
-  button({'onclick': () => playButton(), 'class': loading.val ? 'loading' : ''},'Play')    
+  button({'onclick': () => playButtonClick(), 'class': loading.val ? 'loading' : ''},'Play')    
 );
 van.add(document.getElementById('settings-header'), PlayButton);
 
@@ -261,11 +263,18 @@ function playTheGame(playerA, playerB) {
     //let choiceA = handle_function_call(playerA);
     let choiceB = window[playerB](params);
     //let choiceB = handle_function_call(playerB);
+    let playerNamesHeader;
 
     outcome = calculatePoints(choiceA, choiceB);
     
     if (!tournament.val) {
-      let gameDebug = () => pre(
+      if (iteration === 0) {
+        playerNamesHeader = `${playerA} - ${playerB}:` + "\n\n";
+      } else {
+        playerNamesHeader = '';
+      }
+      gameDebug = () => pre(
+        (playerNamesHeader),
         (choiceA),
         (' - '),
         (choiceB),
@@ -308,7 +317,7 @@ function calculatePoints(choiceA, choiceB) {
 function fight(){
   if (tournament.val) {
     let tournamentScore = playTournament();
-    let debugInfoText = JSON.stringify(tournamentScore, null, 4);
+    let debugInfoText = `Tournament ${tournamentCounter} \n` + JSON.stringify(tournamentScore, null, 4);
     const debugInfo = () => pre(
       debugInfoText
     );
@@ -329,7 +338,8 @@ function fight(){
   return true;
 }
 
-function playButton(){
+function playButtonClick(){
+  tournamentCounter = tournament.val ? ++tournamentCounter : tournamentCounter;
   loading.val = true;
   sleep(100).then(() => fight());
 }
