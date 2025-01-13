@@ -17,7 +17,7 @@
 *
 */
 
-let players = [
+const players = [
   "alwaysCooperate", // nice
   "alwaysDefect", // nasty
   "friedman", // nice
@@ -173,7 +173,7 @@ function tester() {
   if (player.recall('retaliated')) {
     return player.getTheirLastPick();
   } else {
-    return iteration % 2;
+    return (iteration % 2 === 0) ? 0 : 1;
   }
 }
 
@@ -196,8 +196,7 @@ function elon() {
     player.forget('type');
     player.forget('score');
     return 1; // Start with cooperating?
-  }
-  if (iteration > 0) {
+  } else {
     score = parseInt(player.recall('score')) || 0;
     player.remember('score', score + player.getTheirLastPick());
   }
@@ -250,9 +249,9 @@ function elon() {
       case 'alwaysDefect':
         return 0;
       case 'titForTat':
-        return iteration % 2; // alternate
+        return (iteration % 2 === 0) ? 0 : 1; // alternate
       case 'titForTwoTats':
-        return ((iteration % 3 === 0) ? 1 : 0);// alternate every third?
+        return (iteration % 3 === 0) ? 1 : 0;// alternate every third?
       case 'friedman':
         return 0;
       case 'joss':
@@ -266,6 +265,7 @@ function elon() {
   
   return 0;
 }
+
 /*
 * random has a 50% chance of cooperating
 *
@@ -382,7 +382,7 @@ class Player {
   }
   
   recall(key) {
-    return sessionStorage.getItem(this.name + '.' + key);
+    return sessionStorage.getItem(this.name + '.' + key) ? true : false;
   }
   
   forget(key) {

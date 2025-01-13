@@ -6,11 +6,10 @@
 * and the players array & class
 *
 * TODO
-* - add button to clear tournament results
+* - add highlight classes to winning columns in the tournament results table
+* - random rounds should be the same for all games during a tournament
 * - add (configurable) generations, where succesful players survive and play against other succesful players
 *
-* - check the cumulative scores
-* - add reactive front-end interface (using VanJS)
 *
 */
 const {a, div, li, p, ul, ol, hr, strong, em, span, h1, h2, h3, table, tbody, thead, th, tr, td, input, textarea, select, option, button, label, pre, sub, sup} = van.tags;
@@ -18,7 +17,7 @@ const {a, div, li, p, ul, ol, hr, strong, em, span, h1, h2, h3, table, tbody, th
 const tournament = van.state(true);
 const activePlayers = van.state(players); // players come from included Pen
 const currentPlayers = van.state([players[0],players[1]]); // when tournament is set to false, currentPlayers play against eachother
-const randomNumberOfRounds = van.state(true);
+const randomNumberOfRounds = van.state(false);
 const roundsNr = van.state(1000); // disregarded when randomNumberOfRounds is true
 
 const generations = activePlayers.val.length; // TODO implement this (get rid of a loser every generation)
@@ -28,7 +27,7 @@ const points11 = van.state(3) // Player & Opponent both cooperate
 const points00 = van.state(1) // Player & Opponent both defect
 const points10 = van.state(0) // Player cooperates, Opponent defects
 
-let tournamentCounter = 0;
+const tournamentCounter = van.state(0);
 
 const loading = van.state(false);
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -58,6 +57,12 @@ const PlayButton = () => div(
   button({'onclick': () => playButtonClick(), 'class': loading.val ? 'loading' : ''},'Play')    
 );
 van.add(document.getElementById('settings-header'), PlayButton);
+
+const ClearResultsButton = () => div(
+  {'class': 'form button clear'},
+  button({'onclick': () => clearResults(), 'class': 'clear', 'style': tournamentCounter.val && !loading.val ? '' : 'display:none', title: 'Clear and reset all tournament results'},'Clear & Reset')    
+);
+van.add(document.getElementById('result'), ClearResultsButton);
 
 const TournamentCheckbox = () => div({'class': 'form checkbox'},
   input(
@@ -142,7 +147,7 @@ const pointsSettings = () => div({'class': 'form input number points-settings'},
     {
       'type':'number', 'value': `${points11.val}`, 
       'onchange': e => points11.val = e.target.value,
-      'id': 'input-points11', 'min': 1, 'max': 100, 'size': 2,
+      'id': 'input-points11', 'min': -100, 'max': 100, 'size': 2,
       'title': 'Player & Opponent both cooperate'
     }
   ),
@@ -150,7 +155,7 @@ const pointsSettings = () => div({'class': 'form input number points-settings'},
     {
       'type':'number', 'value': `${points00.val}`, 
       'onchange': e => points00.val = e.target.value,
-      'id': 'input-points00', 'min': 1, 'max': 100, 'size': 2,
+      'id': 'input-points00', 'min': -100, 'max': 100, 'size': 2,
       'title': 'Player & Opponent both defect'
     }
   ),
@@ -158,7 +163,7 @@ const pointsSettings = () => div({'class': 'form input number points-settings'},
     {
       'type':'number', 'value': `${points10.val}`, 
       'onchange': e => points10.val = e.target.value,
-      'id': 'input-points10', 'min': 1, 'max': 100, 'size': 2,
+      'id': 'input-points10', 'min': -100, 'max': 100, 'size': 2,
       'title': 'Player cooperates, Opponent defects'
     }
   ),
@@ -317,8 +322,9 @@ function calculatePoints(choiceA, choiceB) {
 function fight(){
   if (tournament.val) {
     let tournamentScore = playTournament();
-    let debugInfoText = `Tournament ${tournamentCounter} \n` + JSON.stringify(tournamentScore, null, 4);
-    const debugInfo = () => pre(
+    let debugInfoText = `--------------\nTournament ${tournamentCounter.val} \n--------------\n\n`;
+    debugInfoText += JSON.stringify(tournamentScore, null, 4);
+    const debugInfo = () => pre({class:'debug-tournament'},
       debugInfoText
     );
     van.add(document.getElementById('info'), debugInfo);
@@ -339,7 +345,22 @@ function fight(){
 }
 
 function playButtonClick(){
-  tournamentCounter = tournament.val ? ++tournamentCounter : tournamentCounter;
+  tournamentCounter.val = tournament.val ? ++tournamentCounter.val : tournamentCounter.val;
   loading.val = true;
   sleep(100).then(() => fight());
+}
+
+function clearResults() {
+  tournamentCounter.val = 0;
+  playersScoreArray.length = 0;
+  playersScore = {};
+  playersOpponentScore = {};
+  let tables = document.getElementsByClassName('generated');
+  while(tables.length > 0) {
+     tables[0].parentNode.removeChild(tables[0]);
+  }
+  let debugs = document.getElementsByClassName('debug-tournament');
+  while(debugs.length > 0) {
+     debugs[0].parentNode.removeChild(debugs[0]);
+  }
 }

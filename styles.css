@@ -11,6 +11,7 @@ body {
 
 table {
   border: none;
+  border-spacing: 1px;
 }
 table.generated {
   width: 100%;
@@ -138,11 +139,20 @@ hr {
         transform: rotate(360deg);
     }
 }
+.form.clear {
+  position: sticky;
+  top:82px;
+  right:0;
+}
+.form.clear button {
+  top:-66px;
+  right:0;
+}
 .form.input.number.random-true{
   display: none;
 }
 .form.select.multiple select{
-  height: 240px;
+  height: 160px;
   margin-bottom: 20px;
 }
 .form.select.multiple.tournament-false{
