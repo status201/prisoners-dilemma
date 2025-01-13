@@ -7,7 +7,6 @@
 *
 * TODO
 * - add highlight classes to winning columns in the tournament results table
-* - random rounds should be the same for all games during a tournament
 * - add (configurable) generations, where succesful players survive and play against other succesful players
 *
 *
@@ -196,7 +195,7 @@ van.add(document.getElementById('settings'), PointsMatrixTable())
 let playerA;
 let playerB;
 let previousPick = new Array();
-let iteration = null;
+let iteration = 0;
 
 // Keep the score
 let scoreA = 0;
@@ -207,14 +206,14 @@ let playersScoreArray = [];
 
 
 
-function playTournament() {
+function playTournament(rounds) {
   let totalPlayers = activePlayers.val.length;
   let tournamentScore = {};
   
   for (let playerI = 0; playerI < totalPlayers; playerI++) {
     for (let opponentI = 0; opponentI < totalPlayers; opponentI++) {
       tournamentScore[activePlayers.val[playerI] +'-'+ activePlayers.val[opponentI]] = 
-          playTheGame(activePlayers.val[playerI], activePlayers.val[opponentI]);
+          playTheGame(activePlayers.val[playerI], activePlayers.val[opponentI], rounds);
 
       playersScore[activePlayers.val[playerI]] = 
         (playersScore[activePlayers.val[playerI]] || 0) + tournamentScore[activePlayers.val[playerI] +'-'+ activePlayers.val[opponentI]][0];
@@ -232,31 +231,22 @@ function playTournament() {
   return tournamentScore;
 }
 
-function playTheGame(playerA, playerB) {
-  let rounds; // Players should not have access to rounds
-  if (randomNumberOfRounds.val) {
-    const roundsMin = 180;
-    const roundsMax = 220;
-    rounds = Math.round(Math.random() * (roundsMax - roundsMin) + roundsMin);
-  } else {
-    rounds = roundsNr.val;
-  }
-  
+function playTheGame(playerA, playerB, rounds) {
   const maxScoreTotal = rounds * (tournament.val ? activePlayers.val.length : 1) * (points11.val + points11.val);
   const maxScoreIndividual = rounds * (tournament.val ? activePlayers.val.length : 1) * points01.val;
-  const maxScoreMessage = () => div(
-    hr(),
-    p(
-      ('Max individual score ('+ rounds +' rounds, ' + (tournament.val ? activePlayers.val.length : 2) + ' players): '),
-      strong(maxScoreIndividual)
-    ),
-    p(
-      ('Max total score ('+ rounds +' rounds, ' + (tournament.val ? activePlayers.val.length : 2) + ' players): '),
-      strong(maxScoreTotal)
+  if (iteration === 0){  
+    const MaxScoreMessage = () => div(
+      hr(),
+      p(
+        ('Max individual score ('+ rounds +' rounds, ' + (tournament.val ? activePlayers.val.length : 2) + ' players): '),
+        strong(maxScoreIndividual)
+      ),
+      p(
+        ('Max total score ('+ rounds +' rounds, ' + (tournament.val ? activePlayers.val.length : 2) + ' players): '),
+        strong(maxScoreTotal)
+      )
     )
-  )
-  if (iteration < 1){
-    van.add(document.getElementById('settings'), maxScoreMessage());
+    van.add(document.getElementById('settings'), MaxScoreMessage());
   }
   
   let outcome = new Array();
@@ -272,7 +262,7 @@ function playTheGame(playerA, playerB) {
 
     outcome = calculatePoints(choiceA, choiceB);
     
-    if (!tournament.val) {
+    if (!tournament.val) { // add an option to debug tournaments as well?
       if (iteration === 0) {
         playerNamesHeader = `${playerA} - ${playerB}:` + "\n\n";
       } else {
@@ -320,8 +310,17 @@ function calculatePoints(choiceA, choiceB) {
 
 // Fight here!
 function fight(){
+  let rounds; // Players should not have access to rounds
+  if (randomNumberOfRounds.val) {
+    const roundsMin = 180;
+    const roundsMax = 220;
+    rounds = Math.round(Math.random() * (roundsMax - roundsMin) + roundsMin);
+  } else {
+    rounds = roundsNr.val;
+  }
+  
   if (tournament.val) {
-    let tournamentScore = playTournament();
+    let tournamentScore = playTournament(rounds);
     let debugInfoText = `--------------\nTournament ${tournamentCounter.val} \n--------------\n\n`;
     debugInfoText += JSON.stringify(tournamentScore, null, 4);
     const debugInfo = () => pre({class:'debug-tournament'},
@@ -334,7 +333,7 @@ function fight(){
       data: playersScoreArray,
     }));
   } else {
-    playTheGame(currentPlayers.val[0], currentPlayers.val[1]);
+    playTheGame(currentPlayers.val[0], currentPlayers.val[1], rounds);
     const debugGame = () => p(`Score (${currentPlayers.val[0]}, ${currentPlayers.val[1]}): ${scoreA}, ${scoreB}. Total: ` + (scoreA + scoreB));
     van.add(document.getElementById('result'), debugGame);
   }
