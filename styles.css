@@ -78,6 +78,10 @@ hr {
   position: sticky;
   top: 8px;
   background-color: inherit;
+  z-index: 1;
+}
+#settings-header .form {
+  margin-bottom: 0;
 }
 #result {
   background-color:#fefefe;
@@ -87,8 +91,11 @@ hr {
 }
 
 /* Form elements*/
-.form input {
+.form {
   margin-bottom: 20px;
+}
+.form input {
+  margin: 0 5px 5px 0;
 }
 .form button {
   background: #fff;
@@ -148,12 +155,24 @@ hr {
   top:-66px;
   right:0;
 }
-.form.input.number.random-true{
-  display: none;
+.form.checkbox label{
+  position: relative;
+  top: -1px;
+}
+.form.input.number.random-true {
+  /*display: none;*/
+}
+.form.input.number p {
+  display: inline-block;
+  margin: 0 0 5px;
+}
+.form.select.multiple label{
+  display: block;
+  margin-bottom: 10px;
 }
 .form.select.multiple select{
   height: 160px;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
 }
 .form.select.multiple.tournament-false{
   display: none;

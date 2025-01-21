@@ -182,73 +182,124 @@ function tester() {
 * He tries to find out the opponent's strategy and respond accordingly.
 * All to maximize his own profit.
 *
-* TODO: detect more
+* TODO: Fix Elon (easier said than done) and detect more opponents
 */
 function elon() {
   const name = 'elon';
-  const player = new Player(name);
+  let debug = false;
+  const player = new Player(name, debug);
   
   let score = 0;
-  
-  //console.log('iteration: ', iteration);
+
   //todo: detect as many player strategies as possible
   if (iteration === 0) {
     player.forget('type');
     player.forget('score');
     return 1; // Start with cooperating?
   } else {
-    score = parseInt(player.recall('score')) || 0;
+    score = player.recall('score');
+    if (score === null || score === false) {
+      score = 0;
+    } else {
+      score = parseInt(score);
+    }
     player.remember('score', score + player.getTheirLastPick());
   }
-  
-  if (iteration === 10) {
-    //console.log('score i10:', parseInt(player.recall('score')));
-    switch (parseInt(player.recall('score'))) {
-      case 10:
-        //console.log('Could be alwaysCooperate');
-        player.remember('type', 'alwaysCooperate');
-        return 0;
+
+  if (iteration === 5) {
+    player.log(score);
+    //player.log(player.getTheirLastPick());
+    switch (score) {
       case 0:
-        //console.log('Could be alwaysDefect');
+        player.log('Could be alwaysDefect');
         player.remember('type', 'alwaysDefect');
         return 0;
       case 2:
-        //console.log('Could be titForTat');
+        player.log('Could be titForTat');
         player.remember('type', 'titForTat');
-        return 0;
+        return (iteration % 2 === 0) ? 0 : 1; // alternate
       case 3:
-        //console.log('Could be titForTwoTats');
+        player.log('Could be titForTwoTats');
         player.remember('type', 'titForTwoTats');
+        return (iteration % 3 === 0) ? 1 : 0;// alternate every third?
+      case 4:
+        player.log('Could be alwaysCooperate');
+        player.remember('type', 'alwaysCooperate');
         return 0;
     }
   }
   
-  if (iteration === 15) {
-    //console.log('Score i15: ', parseInt(player.recall('score')));
-    switch (parseInt(player.recall('score'))) {
+  if (iteration === 10) {
+    player.log(score);
+    switch (score) {
       case 2:
-        //console.log('Could be friedman');
+        player.log('Could be friedman');
         player.remember('type', 'friedman');
         return 0;
       case 3:
       case 4:
-        //console.log('could be joss');
+        player.log('could be titForTat');
+        player.remember('type', 'titForTat');
+        return (iteration % 2 === 0) ? 0 : 1; // alternate
+      case 5:
+        if (player.recall('type') !== 'titForTwoTats') {
+          player.log('could be elon');
+          player.remember('type', 'elon');
+          return 1;
+        }
+        return (iteration % 3 === 0) ? 1 : 0;// alternate every third?
+      case 6:
+      case 7:
+          player.log('could be elon');
+          player.remember('type', 'elon');
+          return 1;        
+    }
+  }
+  
+  if (iteration === 15) {
+    player.log(score);
+    switch (score) {
+      case 4:
+      case 5:
+        player.log('Could be joss');
         player.remember('type', 'joss');
         return 0;
       case 6:
-        //console.log('Could be me!');
-        player.remember('type', 'elon');
+        player.log('Still titFotTat?');
+        return (iteration % 2 === 0) ? 0 : 1; // alternate
+      case 8:
+        player.log('Still titForTwoTats');
+        return (iteration % 3 === 0) ? 1 : 0;// alternate every third?
+      case 9:
+      case 10:
+        player.log('titForTatForgiving maybe?');
+        player.remember('type', 'titForTatForgiving');
+        return (iteration % 3 === 0) ? 1 : 0;// alternate every third?
+      case 16:
+      case 17:
+        player.log('Still Elon?');
         return 1;
     }
   }
   
-  if (iteration > 10) {
+  if (iteration === 25) {
+    player.log(score);
+    switch (score) {
+      case 9:
+        player.log('Could be joss');
+        player.remember('type', 'joss');
+        return 0;
+    }
+  }
+  
+  if (iteration > 5) {
     switch(player.recall('type')){
       case 'alwaysCooperate':
         return 0;
       case 'alwaysDefect':
         return 0;
       case 'titForTat':
+      case 'titForTatForgiving':
         return (iteration % 2 === 0) ? 0 : 1; // alternate
       case 'titForTwoTats':
         return (iteration % 3 === 0) ? 1 : 0;// alternate every third?
@@ -373,8 +424,9 @@ function randomHyperNice() {
 */
 
 class Player {
-  constructor(name) {
+  constructor(name, debug=false) {
     this.name = name;
+    this.debug = debug;
   }
   
   remember(key, value) {
@@ -382,7 +434,7 @@ class Player {
   }
   
   recall(key) {
-    return sessionStorage.getItem(this.name + '.' + key) ? true : false;
+    return sessionStorage.getItem(this.name + '.' + key); // returns null when empty
   }
   
   forget(key) {
@@ -409,5 +461,12 @@ class Player {
     const int8 = new Uint8Array(1);
     crypto.getRandomValues(int8);
     return int8[0] < (256/100) * oddsPercentage ? 1 : 0;           
+  }
+  
+  log(message, message2=false) {
+    if (this.debug) {
+      message = message2 !== false ? `${message}\n${message2}` : message;
+      console.log(`${iteration}. ${this.name}:`, message);
+    }
   }
 }

@@ -7,6 +7,7 @@
 *
 * TODO
 * - add highlight classes to winning columns in the tournament results table
+* - add configurable noise, set a percentage previousPick values randomly (or opposite?)
 * - add (configurable) generations, where succesful players survive and play against other succesful players
 *
 *
@@ -17,7 +18,7 @@ const tournament = van.state(true);
 const activePlayers = van.state(players); // players come from included Pen
 const currentPlayers = van.state([players[0],players[1]]); // when tournament is set to false, currentPlayers play against eachother
 const randomNumberOfRounds = van.state(false);
-const roundsNr = van.state(1000); // disregarded when randomNumberOfRounds is true
+const roundsNr = van.state(200); // disregarded when randomNumberOfRounds is true
 
 const generations = activePlayers.val.length; // TODO implement this (get rid of a loser every generation)
 
@@ -77,6 +78,7 @@ const PlayersMultipleSelect = () => div(
   {
     'class': 'form select multiple ' + `tournament-${tournament.val}`
   },
+  label('Tournament participants:'),
   MultipleSelect({
     options: players,
     onchange: e => activePlayers.val = Array.from(e.target.options).filter(o => o.selected).map(o => o.value)
@@ -86,6 +88,7 @@ van.add(document.getElementById('settings'), PlayersMultipleSelect);
 
 const PlayerASelect = () => div(
   {'class': 'form select player ' + `tournament-${tournament.val}`},
+  p('Game players:'),
   label('Player A: '),
   Select({
     options: players, 
@@ -127,10 +130,11 @@ const RoundsNrInput = () => div({'class': 'form input number ' + `random-${rando
       'id': 'roundsNrInput', 'min': 1, 'max': 100000
     }
   ),
+  p(randomNumberOfRounds.val ? ' (more or less)' : ''),
 );
 van.add(document.getElementById('settings'), RoundsNrInput);
 
-const pointsSettings = () => div({'class': 'form input number points-settings'},
+const PointsSettings = () => div({'class': 'form input number points-settings'},
   label(
     'Points/Rewards: '
   ), 
@@ -167,7 +171,7 @@ const pointsSettings = () => div({'class': 'form input number points-settings'},
     }
   ),
 );
-van.add(document.getElementById('settings'), pointsSettings);
+van.add(document.getElementById('settings'), PointsSettings);
 
 const PointsMatrixTable = () => table({'class': 'pointsMatrix'},
   tbody(
@@ -268,14 +272,14 @@ function playTheGame(playerA, playerB, rounds) {
       } else {
         playerNamesHeader = '';
       }
-      gameDebug = () => pre(
+      let GameDebug = () => pre(
         (playerNamesHeader),
         (choiceA),
         (' - '),
         (choiceB),
         (' > ' + outcome[0] + ' - ' + outcome[1])                               
       );
-      van.add(document.getElementById('info'), gameDebug);
+      van.add(document.getElementById('info'), GameDebug);
     }
     
     scoreA = (scoreA || 0) + outcome[0];
@@ -312,8 +316,8 @@ function calculatePoints(choiceA, choiceB) {
 function fight(){
   let rounds; // Players should not have access to rounds
   if (randomNumberOfRounds.val) {
-    const roundsMin = 180;
-    const roundsMax = 220;
+    const roundsMin = Math.ceil(parseInt(roundsNr.val) - (0.1 * roundsNr.val));
+    const roundsMax = Math.ceil(parseInt(roundsNr.val) + (0.1 * roundsNr.val));
     rounds = Math.round(Math.random() * (roundsMax - roundsMin) + roundsMin);
   } else {
     rounds = roundsNr.val;
@@ -323,10 +327,10 @@ function fight(){
     let tournamentScore = playTournament(rounds);
     let debugInfoText = `--------------\nTournament ${tournamentCounter.val} \n--------------\n\n`;
     debugInfoText += JSON.stringify(tournamentScore, null, 4);
-    const debugInfo = () => pre({class:'debug-tournament'},
+    const DebugInfo = () => pre({class:'debug-tournament'},
       debugInfoText
     );
-    van.add(document.getElementById('info'), debugInfo);
+    van.add(document.getElementById('info'), DebugInfo);
     //console.log('playersScore: ', playersScore); 
     van.add(document.getElementById('result'), Table({
       head: ["Player", "Score", "Opponents", "Total"],
@@ -334,8 +338,8 @@ function fight(){
     }));
   } else {
     playTheGame(currentPlayers.val[0], currentPlayers.val[1], rounds);
-    const debugGame = () => p(`Score (${currentPlayers.val[0]}, ${currentPlayers.val[1]}): ${scoreA}, ${scoreB}. Total: ` + (scoreA + scoreB));
-    van.add(document.getElementById('result'), debugGame);
+    const DebugGame = () => p(`Score (${currentPlayers.val[0]}, ${currentPlayers.val[1]}): ${scoreA}, ${scoreB}. Total: ` + (scoreA + scoreB));
+    van.add(document.getElementById('result'), DebugGame);
   }
   // Reset iteration for a next run
   iteration = 0;
