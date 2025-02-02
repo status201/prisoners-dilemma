@@ -93,7 +93,10 @@ function titForTatForgiving() {
 */
 function titForTwoTats() {
   const name = 'titForTwoTats';
-  const player = new Player(name);
+  const debug = false;
+  const player = new Player(name, debug);
+  
+  //player.log(player.recall('defected'), player.getTheirLastPick());
   
   if (iteration === 0) {
     player.forget('defected');
@@ -101,6 +104,7 @@ function titForTwoTats() {
   }
   if (player.getTheirLastPick() === 1) {
     player.forget('defected');
+    player.log('lastPick === 1');
     return 1;
   }
   if (player.getTheirLastPick() === 0) {
@@ -108,6 +112,7 @@ function titForTwoTats() {
       return 0;
     } else {
       player.remember('defected', 1);
+      player.log('First time defected, return 1');
       return 1;
     }
     
@@ -198,17 +203,12 @@ function elon() {
     return 1; // Start with cooperating?
   } else {
     score = player.recall('score');
-    if (score === null || score === false) {
-      score = 0;
-    } else {
-      score = parseInt(score);
-    }
+    score = (score === null || score === false || score === 'false') ? 0 : parseInt(score);
     player.remember('score', score + player.getTheirLastPick());
   }
 
   if (iteration === 5) {
     player.log(score);
-    //player.log(player.getTheirLastPick());
     switch (score) {
       case 0:
         player.log('Could be alwaysDefect');
@@ -217,11 +217,13 @@ function elon() {
       case 2:
         player.log('Could be titForTat');
         player.remember('type', 'titForTat');
-        return (iteration % 2 === 0) ? 0 : 1; // alternate
+        //return (iteration % 2 === 0) ? 0 : 1; // alternate
+        return 1; // always cooperate for max results
       case 3:
         player.log('Could be titForTwoTats');
         player.remember('type', 'titForTwoTats');
         return (iteration % 3 === 0) ? 1 : 0;// alternate every third?
+        //return (iteration % 2 === 0) ? 0 : 1; // alternate every second
       case 4:
         player.log('Could be alwaysCooperate');
         player.remember('type', 'alwaysCooperate');
@@ -240,7 +242,8 @@ function elon() {
       case 4:
         player.log('could be titForTat');
         player.remember('type', 'titForTat');
-        return (iteration % 2 === 0) ? 0 : 1; // alternate
+        //return (iteration % 2 === 0) ? 0 : 1; // alternate
+        return 1; // always cooperate for max results
       case 5:
         if (player.recall('type') !== 'titForTwoTats') {
           player.log('could be elon');
@@ -266,7 +269,8 @@ function elon() {
         return 0;
       case 6:
         player.log('Still titFotTat?');
-        return (iteration % 2 === 0) ? 0 : 1; // alternate
+        //return (iteration % 2 === 0) ? 0 : 1; // alternate
+        return 1; // always cooperate for max results
       case 8:
         player.log('Still titForTwoTats');
         return (iteration % 3 === 0) ? 1 : 0;// alternate every third?
@@ -274,7 +278,7 @@ function elon() {
       case 10:
         player.log('titForTatForgiving maybe?');
         player.remember('type', 'titForTatForgiving');
-        return (iteration % 3 === 0) ? 1 : 0;// alternate every third?
+        return (iteration % 2 === 0) ? 0 : 1; // alternate
       case 16:
       case 17:
         player.log('Still Elon?');
@@ -295,10 +299,10 @@ function elon() {
   if (iteration > 5) {
     switch(player.recall('type')){
       case 'alwaysCooperate':
-        return 0;
       case 'alwaysDefect':
         return 0;
       case 'titForTat':
+        return 1; // always cooperate for max results
       case 'titForTatForgiving':
         return (iteration % 2 === 0) ? 0 : 1; // alternate
       case 'titForTwoTats':
@@ -310,7 +314,7 @@ function elon() {
       case 'elon':
         return 1;
       default:
-        return player.getRandomBit(2); // otherwise return most evil random bool
+        return player.getRandomBit(2);
     }
   }
   
@@ -442,18 +446,18 @@ class Player {
   }
   
   getMyLastPick() {
-    if (currentPlayers.val[0] === undefined || previousPick[0] === undefined) return false;
-    if (currentPlayers.val[0] === this.name) {
+    if (playerA === undefined || playerB === undefined || previousPick[0] === undefined) return false;
+    if (playerA === this.name) {
       return parseInt(previousPick[0]);
-    }
+    } 
     return parseInt(previousPick[1]);
   }
   
   getTheirLastPick() {
-    if (currentPlayers.val[0] === undefined || previousPick[0] === undefined) return false;
-    if (currentPlayers.val[0] === this.name) {
+    if (playerA === undefined || playerB === undefined || previousPick[0] === undefined) return false;
+    if (playerA === this.name) {
       return parseInt(previousPick[1]);
-    }
+    } 
     return parseInt(previousPick[0]);
   }
   

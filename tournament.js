@@ -235,7 +235,9 @@ function playTournament(rounds) {
   return tournamentScore;
 }
 
-function playTheGame(playerA, playerB, rounds) {
+function playTheGame(playerAParam, playerBParam, rounds) {
+  playerA = playerAParam;
+  playerB = playerBParam;
   const maxScoreTotal = rounds * (tournament.val ? activePlayers.val.length : 1) * (points11.val + points11.val);
   const maxScoreIndividual = rounds * (tournament.val ? activePlayers.val.length : 1) * points01.val;
   if (iteration === 0){  
@@ -264,6 +266,10 @@ function playTheGame(playerA, playerB, rounds) {
     //let choiceB = handle_function_call(playerB);
     let playerNamesHeader;
 
+    previousPick = [];
+    previousPick[0] = false;
+    previousPick[1] = false;
+    
     outcome = calculatePoints(choiceA, choiceB);
     
     if (!tournament.val) { // add an option to debug tournaments as well?
@@ -286,6 +292,7 @@ function playTheGame(playerA, playerB, rounds) {
     scoreB = (scoreB || 0) + outcome[1];
     previousPick[0] = choiceA;
     previousPick[1] = choiceB;
+    //console.log(iteration, previousPick);
   }
   return [scoreA, scoreB];
 }
