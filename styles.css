@@ -26,6 +26,13 @@ table.generated {
 .generated tr:hover td {
   background-color: #fff;
 }
+.generated tr td.max {
+  background-color: rgba(66,163,98,0.3);
+  font-weight: bold;
+}
+.generated tr:hover td.max {
+  background-color: rgba(134,196,154,0.35);
+}
 th {
   text-align: left;
   padding: 5px 10px;

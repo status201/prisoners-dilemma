@@ -6,7 +6,6 @@
 * and the players array & class
 *
 * TODO
-* - add highlight classes to winning columns in the tournament results table
 * - add configurable noise, set a percentage previousPick values randomly (or opposite?)
 * - add (configurable) generations, where succesful players survive and play against other succesful players
 *
@@ -44,7 +43,7 @@ const MultipleSelect = ({options, selected, onchange}) => select(
   options.map(op => option({'selected': 'selected'}, op))
 );
 
-const Table = ({head, data}) => table({'class': 'generated'},
+const Table = ({head, data, id}) => table({'class': 'generated', 'id': id},
   head ? thead(tr(head.map(h => th(h)))) : [],
   tbody(data.map(row => tr(
     row.map(col => td(col)),
@@ -54,7 +53,10 @@ const Table = ({head, data}) => table({'class': 'generated'},
 
 const PlayButton = () => div(
   {'class': 'form button'},
-  button({'onclick': () => playButtonClick(), 'class': loading.val ? 'loading' : ''},'Play')    
+  button(
+    {'onclick': () => playButtonClick(), 'class': loading.val ? 'loading' : ''},
+    tournament.val && tournamentCounter.val > 0 ? 'Again': 'Play'
+  )    
 );
 van.add(document.getElementById('settings-header'), PlayButton);
 
@@ -238,7 +240,7 @@ function playTournament(rounds) {
 function playTheGame(playerAParam, playerBParam, rounds) {
   playerA = playerAParam;
   playerB = playerBParam;
-  const maxScoreTotal = rounds * (tournament.val ? activePlayers.val.length : 1) * (points11.val + points11.val);
+  const maxScoreTotal = rounds * (tournament.val ? activePlayers.val.length : 1) * (points11.val * 2);
   const maxScoreIndividual = rounds * (tournament.val ? activePlayers.val.length : 1) * points01.val;
   if (iteration === 0){  
     const MaxScoreMessage = () => div(
@@ -342,10 +344,14 @@ function fight(){
     van.add(document.getElementById('result'), Table({
       head: ["Player", "Score", "Opponents", "Total"],
       data: playersScoreArray,
+      id: 'tournament-table-' + tournamentCounter.val
     }));
+    highlightWinners(document.getElementById('tournament-table-' + tournamentCounter.val));
   } else {
     playTheGame(currentPlayers.val[0], currentPlayers.val[1], rounds);
-    const DebugGame = () => p(`Score (${currentPlayers.val[0]}, ${currentPlayers.val[1]}): ${scoreA}, ${scoreB}. Total: ` + (scoreA + scoreB));
+    const DebugGame = () => p(
+      `Score (${currentPlayers.val[0]}, ${currentPlayers.val[1]}): ${scoreA}, ${scoreB}. Total: ` + (scoreA + scoreB)
+    );
     van.add(document.getElementById('result'), DebugGame);
   }
   // Reset iteration for a next run
@@ -372,5 +378,41 @@ function clearResults() {
   let debugs = document.getElementsByClassName('debug-tournament');
   while(debugs.length > 0) {
      debugs[0].parentNode.removeChild(debugs[0]);
+  }
+}
+
+function highlightWinners(table) {
+  if (table === null) return;
+
+  let thead = table.tHead,
+    tbody = table.tBodies[0],
+    rowCount = tbody.rows.length,
+    colCount = thead.rows[0].cells.length,
+    maxValues = new Array(colCount),
+    maxCells = new Array(colCount),
+    i = rowCount - 1,
+    j = colCount - 1,
+    cell,
+    value;
+
+  for (; i > -1; i--) {
+    for (; j > -1; j--) {
+      cell = tbody.rows[i].cells[j];
+      value = parseFloat(cell.innerHTML);
+      if (value.toString() === "NaN") continue;
+      if (value > (maxValues[j] === undefined ? -1 : maxValues[j])) {
+        maxValues[j] = value;
+        maxCells[j] = [i,j];
+      }
+    }
+    j = colCount - 1;
+  }
+
+  for (; j > -1; j--) {
+    if (maxCells[j] !== undefined){
+      tbody.rows[maxCells[j][0]].cells[
+        maxCells[j][1]
+      ].setAttribute("class", "max");
+    }
   }
 }

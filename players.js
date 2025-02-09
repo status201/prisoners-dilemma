@@ -251,8 +251,8 @@ function elon() {
           return 1;
         }
         return (iteration % 3 === 0) ? 1 : 0;// alternate every third?
-      case 6:
-      case 7:
+      case 10:
+      case 11:
           player.log('could be elon');
           player.remember('type', 'elon');
           return 1;        
@@ -271,6 +271,10 @@ function elon() {
         player.log('Still titFotTat?');
         //return (iteration % 2 === 0) ? 0 : 1; // alternate
         return 1; // always cooperate for max results
+      case 7:
+        player.log('Could be random?');
+        player.remember('type', 'random');
+        return 0;
       case 8:
         player.log('Still titForTwoTats');
         return (iteration % 3 === 0) ? 1 : 0;// alternate every third?
@@ -279,8 +283,8 @@ function elon() {
         player.log('titForTatForgiving maybe?');
         player.remember('type', 'titForTatForgiving');
         return (iteration % 2 === 0) ? 0 : 1; // alternate
-      case 16:
-      case 17:
+      case 20:
+      case 21:
         player.log('Still Elon?');
         return 1;
     }
@@ -293,6 +297,14 @@ function elon() {
         player.log('Could be joss');
         player.remember('type', 'joss');
         return 0;
+      case 10:
+      case 12:
+      case 13:
+      case 14:
+        if (player.recall('type') === 'titForTat' || player.recall('type') === 'titForTwoTats' ) {
+          player.log('Not a titForTat, Random or Joss?');
+          player.remember('type', 'random');
+        }
     }
   }
   
@@ -313,6 +325,8 @@ function elon() {
         return  player.getRandomBit(30) ? 0 : player.getTheirLastPick();
       case 'elon':
         return 1;
+      case 'random':
+        return 0;
       default:
         return player.getRandomBit(2);
     }
