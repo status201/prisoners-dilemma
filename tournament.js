@@ -7,8 +7,6 @@
 *
 * TODO
 * - add configurable noise, set a percentage previousPick values randomly (or opposite?)
-* - add (configurable) generations, where succesful players survive and play against other succesful players
-*
 *
 */
 const {a, div, li, p, ul, ol, hr, strong, em, span, h1, h2, h3, table, tbody, thead, th, tr, td, input, textarea, select, option, button, label, pre, sub, sup} = van.tags;
@@ -19,7 +17,9 @@ const currentPlayers = van.state([players[0],players[1]]); // when tournament is
 const randomNumberOfRounds = van.state(false);
 const roundsNr = van.state(200); // disregarded when randomNumberOfRounds is true
 
-const generations = activePlayers.val.length; // TODO implement this (get rid of a loser every generation)
+const evolution = van.state(true); // New: evolution mode
+const tournamentsPerElimination = van.state(3); // New: how many tournaments before eliminating loser
+const evolutionProgress = van.state(0); // New: tracks current tournament in evolution cycle
 
 const points01 = van.state(5) // Player defects, Opponent cooperates
 const points11 = van.state(3) // Player & Opponent both cooperate
@@ -30,6 +30,12 @@ const tournamentCounter = van.state(0);
 
 const loading = van.state(false);
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const scrollToElement = (element) => {
+  if (element) {
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+};
 
 const List = ({items}) => ul(items.map(it => li(it)));
 
@@ -75,6 +81,33 @@ const TournamentCheckbox = () => div({'class': 'form checkbox'},
   )
 );
 van.add(document.getElementById('settings'), TournamentCheckbox);
+
+// New: Evolution checkbox
+const EvolutionCheckbox = () => div({'class': 'form checkbox'},
+  input(
+    {'type':'checkbox', 'onclick': () => evolution.val = !evolution.val, 'checked': evolution.val, 'id': 'evolutionCheckbox', 'disabled': !tournament.val}
+  ), 
+  label(
+    {'for': 'evolutionCheckbox', 'class': !tournament.val ? 'disabled' : ''}, 'Evolution (eliminate losers)', ` (${evolution.val})`
+  )
+);
+van.add(document.getElementById('settings'), EvolutionCheckbox);
+
+// New: Tournaments per elimination input
+const TournamentsPerEliminationInput = () => div({'class': 'form input number ' + `evolution-${evolution.val}`, 'style': evolution.val ? '' : 'display:none'},
+  label(
+    {'for': 'tournamentsPerEliminationInput', 'class': !tournament.val ? 'disabled' : ''}, 'Tournaments before elimination: '
+  ),                                
+  input(
+    {
+      'type':'number', 'value': `${tournamentsPerElimination.val}`, 
+      'onchange': e => tournamentsPerElimination.val = e.target.value,
+      'id': 'tournamentsPerEliminationInput', 'min': 1, 'max': 10,
+      'disabled': !tournament.val
+    }
+  )
+);
+van.add(document.getElementById('settings'), TournamentsPerEliminationInput);
 
 const PlayersMultipleSelect = () => div(
   {
@@ -210,6 +243,8 @@ let playersScore = {};
 let playersOpponentScore = {};
 let playersScoreArray = [];
 
+// A tie happened
+let playersTie = 0;
 
 
 function playTournament(rounds) {
@@ -263,9 +298,7 @@ function playTheGame(playerAParam, playerBParam, rounds) {
   for (iteration = 0; iteration < rounds; iteration++) {
     let params = new Array();
     let choiceA = window[playerA](params);
-    //let choiceA = handle_function_call(playerA);
     let choiceB = window[playerB](params);
-    //let choiceB = handle_function_call(playerB);
     let playerNamesHeader;
 
     previousPick = [];
@@ -294,7 +327,6 @@ function playTheGame(playerAParam, playerBParam, rounds) {
     scoreB = (scoreB || 0) + outcome[1];
     previousPick[0] = choiceA;
     previousPick[1] = choiceB;
-    //console.log(iteration, previousPick);
   }
   return [scoreA, scoreB];
 }
@@ -323,7 +355,7 @@ function calculatePoints(choiceA, choiceB) {
 
 // Fight here!
 function fight(){
-  let rounds; // Players should not have access to rounds
+  let rounds;
   if (randomNumberOfRounds.val) {
     const roundsMin = Math.ceil(parseInt(roundsNr.val) - (0.1 * roundsNr.val));
     const roundsMax = Math.ceil(parseInt(roundsNr.val) + (0.1 * roundsNr.val));
@@ -339,14 +371,178 @@ function fight(){
     const DebugInfo = () => pre({class:'debug-tournament'},
       debugInfoText
     );
-    van.add(document.getElementById('info'), DebugInfo);
-    //console.log('playersScore: ', playersScore); 
+    //van.add(document.getElementById('info'), DebugInfo);
+    const infoPane = document.getElementById('info');
+    infoPane.prepend(DebugInfo());
+    
+    // Display results
     van.add(document.getElementById('result'), Table({
       head: ["Player", "Score", "Opponents", "Total"],
       data: playersScoreArray,
       id: 'tournament-table-' + tournamentCounter.val
     }));
     highlightWinners(document.getElementById('tournament-table-' + tournamentCounter.val));
+    
+    // Handle evolution/elimination
+    if (evolution.val && activePlayers.val.length > 1) {
+      evolutionProgress.val++;
+      
+      if (evolutionProgress.val >= parseInt(tournamentsPerElimination.val)) {
+        // Find the loser (lowest score)
+        let lowestScore = Infinity;
+        let loserIndex = -1;
+        let loserCount = 0;
+        
+        // First pass: find the lowest score
+        for (let i = 0; i < playersScoreArray.length; i++) {
+          const score = playersScoreArray[i][1]; // Individual score
+          
+          if (score < lowestScore && !(playersTie === 1 && (activePlayers.val[i] === 'random' && activePlayers.val.length > 2))) {
+            lowestScore = score;
+            loserIndex = i;
+            loserCount = 1;
+          } else if (score === lowestScore) {
+            loserCount++;
+          }
+        }
+        
+        // Check if all players are tied (everyone has the same score)
+        const allScoresSame = playersScoreArray.every(player => player[1] === playersScoreArray[0][1]);
+        
+        if (allScoresSame && activePlayers.val.length > 1) {
+          // All players are tied - add random player as tiebreaker
+          const TiebreakerMessage = () => div(
+            {class: 'tiebreaker-message'},
+            strong('⚖️ TIE DETECTED: '),
+            span(`All ${loserCount} players tied with score ${lowestScore}. Adding "random" player as tiebreaker!`)
+          );
+          van.add(document.getElementById('result'), TiebreakerMessage);
+          
+          // Scroll to tiebreaker message
+          sleep(100).then(() => {
+            const messages = document.getElementsByClassName('tiebreaker-message');
+            if (messages.length > 0) {
+              scrollToElement(messages[messages.length - 1]);
+            }
+          });
+          
+          playersTie = 1;
+          
+          // Add random player if not already present
+          if (!activePlayers.val.includes('random')) {
+            activePlayers.val = [...activePlayers.val, 'random'];
+          }
+          
+          // Reset evolution progress and continue
+          evolutionProgress.val = 0;
+          playersScoreArray.length = 0;
+          playersScore = {};
+          playersOpponentScore = {};
+          
+          sleep(1000).then(() => {
+            tournamentCounter.val++;
+            fight();
+          });
+          return true;
+        }
+        
+        playerTie = 0;
+        
+        if (loserIndex !== -1) {
+          const eliminatedPlayer = activePlayers.val[loserIndex];
+          
+          // Show elimination message
+          const EliminationMessage = () => div(
+            {class: 'elimination-message'},
+            strong('❌ ELIMINATED: '),
+            span(eliminatedPlayer),
+            span(` (Score: ${lowestScore})`)
+          );
+          van.add(document.getElementById('result'), EliminationMessage);
+          
+          // Scroll to elimination message
+          sleep(100).then(() => {
+            const messages = document.getElementsByClassName('elimination-message');
+            if (messages.length > 0) {
+              scrollToElement(messages[messages.length - 1]);
+            }
+          });
+          
+          // Remove loser from active players
+          const newActivePlayers = activePlayers.val.filter((_, index) => index !== loserIndex);
+          activePlayers.val = newActivePlayers;
+          
+          // Reset evolution progress
+          evolutionProgress.val = 0;
+          
+          // Check if we have a winner
+          if (newActivePlayers.length === 1) {
+            const winnerElement = div(
+              {class: 'winner-message'},
+              h2({style: 'margin: 0; color: #2e7d32;'}, '🏆 EVOLUTION WINNER 🏆'),
+              p({style: 'font-size: 24px; margin: 10px 0;'}, strong(newActivePlayers[0])),
+              p('Survived ', tournamentCounter.val, ' tournaments!')
+            );
+            van.add(document.getElementById('result'), winnerElement);
+            
+            // Scroll to winner message
+            sleep(100).then(() => {
+              const winners = document.getElementsByClassName('winner-message');
+              if (winners.length > 0) {
+                scrollToElement(winners[winners.length - 1]);
+              }
+            });
+            
+            loading.val = false;
+            return true;
+          }
+          
+          // Continue with next tournament automatically
+          if (newActivePlayers.length > 1) {
+            const ContinueMessage = () => p(
+              {class:'continue-message'},
+              `${newActivePlayers.length} players remaining. Next tournament starting...`
+            );
+            van.add(document.getElementById('result'), ContinueMessage);
+            playerTie = 0;
+            
+            // Reset scores for next tournament cycle
+            playersScoreArray.length = 0;
+            playersScore = {};
+            playersOpponentScore = {};
+            
+            // Continue automatically
+            sleep(1000).then(() => {
+              tournamentCounter.val++;
+              fight();
+            });
+            return true;
+          }
+        }
+      } else {
+        // Show progress towards elimination
+        const progressElement = p(
+          {class: 'progress-message'},
+          `Evolution progress: ${evolutionProgress.val}/${tournamentsPerElimination.val} tournaments until elimination`
+        );
+        van.add(document.getElementById('result'), progressElement);
+        
+        // Scroll to progress message
+        sleep(100).then(() => {
+          const messages = document.getElementsByClassName('progress-message');
+          if (messages.length > 0) {
+            scrollToElement(messages[messages.length - 1]);
+          }
+        });
+        // Continue automatically
+        sleep(1000).then(() => {
+          tournamentCounter.val++;
+          fight();
+        });
+        return true;
+      }
+    }
+    
   } else {
     playTheGame(currentPlayers.val[0], currentPlayers.val[1], rounds);
     const DebugGame = () => p(
@@ -354,6 +550,7 @@ function fight(){
     );
     van.add(document.getElementById('result'), DebugGame);
   }
+  
   // Reset iteration for a next run
   iteration = 0;
   loading.val = false;
@@ -362,15 +559,37 @@ function fight(){
 
 function playButtonClick(){
   tournamentCounter.val = tournament.val ? ++tournamentCounter.val : tournamentCounter.val;
+  
+  // Reset evolution progress when starting fresh
+  if (tournamentCounter.val === 1 && evolution.val) {
+    evolutionProgress.val = 0;
+    // Reset active players to all selected players
+    const selectedOptions = Array.from(document.querySelectorAll('#settings select[multiple] option:checked'));
+    if (selectedOptions.length > 0) {
+      activePlayers.val = selectedOptions.map(o => o.value);
+    }
+  }
+  
   loading.val = true;
   sleep(100).then(() => fight());
 }
 
 function clearResults() {
   tournamentCounter.val = 0;
+  evolutionProgress.val = 0;
   playersScoreArray.length = 0;
   playersScore = {};
   playersOpponentScore = {};
+  playersTie = 0;
+  
+  // Reset active players to all selected
+  const selectedOptions = Array.from(document.querySelectorAll('#settings select[multiple] option:checked'));
+  if (selectedOptions.length > 0) {
+    activePlayers.val = selectedOptions.map(o => o.value);
+  } else {
+    activePlayers.val = players;
+  }
+  
   let tables = document.getElementsByClassName('generated');
   while(tables.length > 0) {
      tables[0].parentNode.removeChild(tables[0]);
@@ -379,6 +598,32 @@ function clearResults() {
   while(debugs.length > 0) {
      debugs[0].parentNode.removeChild(debugs[0]);
   }
+  let eliminations = document.getElementsByClassName('elimination-message');
+  while(eliminations.length > 0) {
+     eliminations[0].parentNode.removeChild(eliminations[0]);
+  }
+  let winners = document.getElementsByClassName('winner-message');
+  while(winners.length > 0) {
+     winners[0].parentNode.removeChild(winners[0]);
+  }
+  let continues = document.getElementsByClassName('continue-message');
+  while(continues.length > 0) {
+     continues[0].parentNode.removeChild(continues[0]);
+  }
+  let progresses = document.getElementsByClassName('progress-message');
+  while(progresses.length > 0) {
+     progresses[0].parentNode.removeChild(progresses[0]);
+  }
+  let tiebreakers = document.getElementsByClassName('tiebreaker-message');
+  while(tiebreakers.length > 0) {
+     tiebreakers[0].parentNode.removeChild(tiebreakers[0]);
+  }  
+  let maxScores = document.querySelectorAll('#settings hr');
+  maxScores.forEach(hr => {
+    if (hr.nextSibling) hr.nextSibling.remove();
+    if (hr.nextSibling) hr.nextSibling.remove();
+    hr.remove();
+  });
 }
 
 function highlightWinners(table) {
