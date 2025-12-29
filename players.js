@@ -24,8 +24,12 @@ const players = [
   "joss", // nasty
   "elon", // nasty
   "tester", // nasty
+  "adaptiveCooperator", // nice
+  "smartCooperator", // nice
+  "grandmaster", // nice?
   "titForTat", // nice
   "titForTatForgiving", // nice
+  "titForTatForgivingR", // nice
   "titForTwoTats", // nice
   "random", // "nicety"
   "randomNasty", // "nasty"
@@ -73,11 +77,46 @@ function titForTat() {
 }
 
 /*
-* titForTatForgiving; forgives 10% of defections
-*
+* titForTatForgiving - Classic winning strategy with smart forgiveness
 */
 function titForTatForgiving() {
   const name = 'titForTatForgiving';
+  const player = new Player(name);
+  
+  if (iteration === 0) {
+    player.forget('theirCoopCount');
+    return 1;
+  }
+  
+  // Track their cooperation
+  let theirCoopCount = parseInt(player.recall('theirCoopCount')) || 0;
+  if (player.getTheirLastPick() === 1) {
+    theirCoopCount++;
+    player.remember('theirCoopCount', theirCoopCount);
+  }
+  
+  const theirCoopRate = theirCoopCount / iteration;
+  
+  // If they defected last round
+  if (player.getTheirLastPick() === 0) {
+    // But they're generally cooperative (>75%), forgive with 20% probability
+    if (theirCoopRate > 0.75) {
+      return player.getRandomBit(20) ? 1 : 0;
+    }
+    // Otherwise retaliate
+    return 0;
+  }
+  
+  // They cooperated, so cooperate back
+  return 1;
+}
+
+/*
+* titForTatForgivingR; forgives 10% of defections
+*
+*/
+function titForTatForgivingR() {
+  const name = 'titForTatForgivingR';
   const player = new Player(name);
   
   if (iteration === 0) {return 1;}
@@ -187,7 +226,8 @@ function tester() {
 * He tries to find out the opponent's strategy and respond accordingly.
 * All to maximize his own profit.
 *
-* TODO: Fix Elon (easier said than done) and detect more opponents
+* TODO: Fix Elon (easier said than done) and detect more and newly added opponents:
+* "adaptiveCooperator", "smartCooperator", "grandmaster", "titForTatForgiving"
 */
 function elon() {
   const name = 'elon';
@@ -332,6 +372,227 @@ function elon() {
     }
   }
   
+  return 0;
+}
+
+/*
+* adaptiveCooperator - A strategic player that balances cooperation and exploitation
+* by Claude Sonnet 4.5
+* 
+* This strategy:
+* 1. Starts cooperatively to build trust
+* 2. Tracks opponent patterns to identify their strategy
+* 3. Adapts behavior based on opponent type
+* 4. Exploits pure cooperators while cooperating with reciprocators
+* 5. Defends against defectors without getting stuck in mutual defection
+*/
+function adaptiveCooperator() {
+  const name = 'adaptiveCooperator';
+  const player = new Player(name);
+  
+  // First move: always cooperate
+  if (iteration === 0) {
+    player.forget('cooperations');
+    player.forget('defections');
+    player.forget('pattern');
+    player.forget('exploitMode');
+    return 1;
+  }
+  
+  // Track opponent's behavior
+  let cooperations = parseInt(player.recall('cooperations')) || 0;
+  let defections = parseInt(player.recall('defections')) || 0;
+  
+  if (player.getTheirLastPick() === 1) {
+    cooperations++;
+    player.remember('cooperations', cooperations);
+  } else {
+    defections++;
+    player.remember('defections', defections);
+  }
+  
+  const total = cooperations + defections;
+  const coopRate = cooperations / total;
+  
+  // Early game (first 5 rounds): probe opponent
+  if (iteration <= 5) {
+    // Mirror opponent to see if they reciprocate
+    return player.getTheirLastPick();
+  }
+  
+  // Mid-game strategy classification (rounds 6-15)
+  if (iteration <= 15) {
+    // Against pure cooperators (>90% cooperation): exploit cautiously
+    if (coopRate > 0.9) {
+      player.remember('pattern', 'cooperator');
+      // Defect every 3rd round to maximize points while maintaining relationship
+      return (iteration % 3 === 0) ? 0 : 1;
+    }
+    
+    // Against pure defectors (>90% defection): punish but offer olive branch
+    if (coopRate < 0.1) {
+      player.remember('pattern', 'defector');
+      // Mostly defect but occasionally cooperate to test if they'll change
+      return (iteration % 7 === 0) ? 1 : 0;
+    }
+    
+    // Against reciprocators (balanced): cooperate fully
+    if (coopRate >= 0.4 && coopRate <= 0.9) {
+      player.remember('pattern', 'reciprocator');
+      return player.getTheirLastPick();
+    }
+    
+    // Default: tit-for-tat
+    return player.getTheirLastPick();
+  }
+  
+  // Late game: execute optimal strategy based on identified pattern
+  const pattern = player.recall('pattern');
+  
+  switch(pattern) {
+    case 'cooperator':
+      // Against pure cooperators: defect 40% of the time for maximum exploitation
+      return player.getRandomBit(60);
+      
+    case 'defector':
+      // Against defectors: mostly defect, rare cooperation attempts
+      return (iteration % 8 === 0) ? 1 : 0;
+      
+    case 'reciprocator':
+      // Against reciprocators (tit-for-tat, etc.): pure cooperation for mutual benefit
+      return 1;
+      
+    default:
+      // Against unknown/random: slightly favor cooperation but be cautious
+      if (player.getTheirLastPick() === 0) {
+        // If they just defected, defect back
+        return 0;
+      }
+      // If they cooperated, cooperate with 80% probability
+      return player.getRandomBit(80);
+  }
+}
+
+
+/*
+* smartCooperator - A winning strategy that cooperates intelligently
+* Second try by Claude Sonnet 4.5
+* Key principles:
+* 1. Never defect first - avoid triggering grudge-holders like Friedman
+* 2. Retaliate immediately to defection - pass Tester's check
+* 3. Forgive occasional defections - handle Joss and random players well
+* 4. Build long-term cooperation - maximize mutual gains
+*/
+function smartCooperator() {
+  const name = 'smartCooperator';
+  const player = new Player(name);
+  
+  // First move: always cooperate
+  if (iteration === 0) {
+    player.forget('theirDefections');
+    player.forget('consecutiveDefections');
+    player.forget('myLastMove');
+    return 1;
+  }
+  
+  // Track their behavior
+  let theirDefections = parseInt(player.recall('theirDefections')) || 0;
+  let consecutiveDefections = parseInt(player.recall('consecutiveDefections')) || 0;
+  let myLastMove = parseInt(player.recall('myLastMove')) || 1;
+  
+  if (player.getTheirLastPick() === 0) {
+    theirDefections++;
+    consecutiveDefections++;
+    player.remember('theirDefections', theirDefections);
+    player.remember('consecutiveDefections', consecutiveDefections);
+  } else {
+    consecutiveDefections = 0;
+    player.remember('consecutiveDefections', 0);
+  }
+  
+  // Calculate cooperation rate
+  const theirCoopRate = 1 - (theirDefections / iteration);
+  
+  // RULE 1: If they defected last round, retaliate once
+  if (player.getTheirLastPick() === 0) {
+    player.remember('myLastMove', 0);
+    
+    // But if they're showing mostly cooperative behavior (>70%), forgive occasional slips
+    // This handles Joss (90% cooperative) and random nice players well
+    if (theirCoopRate > 0.7 && consecutiveDefections === 1) {
+      // Forgive single defections from generally cooperative players
+      if (player.getRandomBit(30)) { // 30% chance to forgive
+        player.remember('myLastMove', 1);
+        return 1;
+      }
+    }
+    
+    return 0;
+  }
+  
+  // RULE 2: If they're cooperating now, cooperate back
+  // This works well against:
+  // - titForTat (mutual cooperation)
+  // - titForTwoTats (we retaliated, they forgave)
+  // - Tester (we retaliated to their test, now they play nice)
+  // - Elon (we appear cooperative but firm)
+  player.remember('myLastMove', 1);
+  return 1;
+}
+
+
+/*
+* grandmaster - A tournament-optimized strategy
+* Third try Claude Sonnet 4.5
+* 
+* Designed specifically to win tournaments by:
+* 1. Maximizing cooperation with cooperators
+* 2. Defending firmly against defectors
+* 3. Passing all "tests" from sneaky strategies
+*/
+function grandmaster() {
+  const name = 'grandmaster';
+  const player = new Player(name);
+  
+  // Always cooperate first
+  if (iteration === 0) {
+    player.forget('defectCount');
+    player.forget('lastDefect');
+    return 1;
+  }
+  
+  // Track defections
+  let defectCount = parseInt(player.recall('defectCount')) || 0;
+  let lastDefect = parseInt(player.recall('lastDefect')) || -10;
+  
+  if (player.getTheirLastPick() === 0) {
+    defectCount++;
+    lastDefect = iteration - 1;
+    player.remember('defectCount', defectCount);
+    player.remember('lastDefect', lastDefect);
+  }
+  
+  const defectRate = defectCount / iteration;
+  const sinceLast = iteration - 1 - lastDefect;
+  
+  // If they JUST defected, retaliate immediately
+  if (player.getTheirLastPick() === 0) {
+    return 0;
+  }
+  
+  // They're cooperating now - decide whether to cooperate back
+  
+  // If they're mostly cooperative (< 30% defection), cooperate
+  if (defectRate < 0.3) {
+    return 1;
+  }
+  
+  // If they defect a lot but it's been a while, give them one more chance
+  if (sinceLast > 5) {
+    return 1;
+  }
+  
+  // Otherwise defect
   return 0;
 }
 
