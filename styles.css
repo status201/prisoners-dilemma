@@ -297,18 +297,121 @@ hr {
 
 
 @media (max-width: 1000px) {
-  .grid-container  {
+  .grid-container {
     grid-template-areas: 
-      'header header header header header header' 
-      'left left left left left left' 
-      'middle middle middle middle middle middle' 
-      'right right right right right right' 
-      'footer footer footer footer footer footer';
+      'header'
+      'left' 
+      'middle' 
+      'right' 
+      'footer';
+	grid-template-columns: 1fr;
   }
   .left,
   .middle,
   .right {
     height: auto;
-    overflow: none;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 700px) {
+  .header {
+    padding: 15px 10px;
+  }
+  
+  h2 {
+    font-size: 16px;
+    line-height: 18px;
+  }
+  
+  h3 {
+    font-size: 14px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    margin-bottom: 20px;
+  }
+  
+  /* Make settings header sticky positioning work better on mobile */
+  #settings h3 {
+    top: 0;
+  }
+  
+  /* Adjust form button positioning for mobile */
+  .form button {
+    position: static; /* Remove absolute positioning */
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px 20px;
+    min-height: 44px; /* Touch-friendly size */
+  }
+  
+  .header {
+    position: relative; /* Ensure button context */
+  }
+  
+  /* Fix clear button on mobile */
+  .form.clear {
+    top: 0;
+    position: static;
+  }
+  
+  .form.clear button {
+    top: 0;
+    right: 0;
+    position: static;
+    margin-bottom: 10px;
+  }
+  
+  /* Make inputs more touch-friendly */
+  input[type="number"],
+  input[type="text"],
+  select {
+    font-size: 14px; /* Prevents iOS zoom */
+    padding: 8px;
+    min-height: 44px;
+  }
+  
+  .form.select.multiple select {
+    height: 200px; /* Taller on mobile for easier selection */
+  }
+  
+  /* Make table text readable on mobile */
+  table.generated {
+    font-size: 10px;
+  }
+  
+  th, td {
+    padding: 4px 6px;
+  }
+  
+  /* Adjust spacing for message boxes */
+  .progress-message,
+  .continue-message,
+  .tiebreaker-message,
+  .elimination-message,
+  .mutant-message {
+    padding: 8px;
+    margin: 8px 0;
+  }
+  
+  .mutant-message pre {
+    font-size: 10px;
+  }
+  
+  .winner-message {
+    padding: 15px;
+    margin: 15px 0;
+  }
+  
+  
+  /* Reduce column padding on mobile */
+  .left,
+  .middle,
+  .right {
+    padding: 0px 10px 20px;
+  }
+  
+  .footer {
+    padding: 8px 10px;
   }
 }
