@@ -20,26 +20,27 @@
 const players = [
   "alwaysCooperate", // nice
   "alwaysDefect", // nasty
-  "friedman", // nice
+  "friedman", // nice (but unforgiving once crossed)
   "joss", // nasty
   "elon", // nasty
   "tester", // nasty
   "adaptiveCooperator", // nice
   "smartCooperator", // nice
-  "grandmaster", // nice?
-  "titForTat", // nice
+  "grandmaster", // nice (but retaliatory)
+  "grandmaster2", // nice (but retaliatory)
+  "titForTat", // nice (but retaliatory)
   "titForTatForgiving", // nice
   "titForTatForgivingR", // nice
   "titForTwoTats", // nice
-  "random", // "nicety"
-  "randomNasty", // "nasty"
-  "randomVeryNasty", // "nasty"
-  "randomSuperNasty", // "nasty"
-  "randomHyperNasty", // "nasty"
-  "randomNice", // "nice"
-  "randomVeryNice", // "nice"
-  "randomSuperNice", // "nice"
-  "randomHyperNice", // "nice"
+  "random", // neutral
+  "randomNasty", // nasty
+  "randomVeryNasty", // nasty
+  "randomSuperNasty", // nasty
+  "randomHyperNasty", // nasty
+  "randomNice", // nice
+  "randomVeryNice", // nice
+  "randomSuperNice", // nice
+  "randomHyperNice", // nice
 ];
 
 /*
@@ -594,6 +595,79 @@ function grandmaster() {
   
   // Otherwise defect
   return 0;
+}
+
+/*
+* grandmaster2 - Enhanced tournament strategy with random player adaptation
+* Improved version by Claude Sonnet 4.5
+* 
+* Builds on grandmaster with key improvements:
+* 1. Detects random players (30-70% defection rate, non-responsive behavior)
+* 2. Adapts against random by cooperating 55% to maximize expected value
+* 3. Strategic forgiveness (20%) against random-like opponents
+* 4. Maintains strong performance vs Friedman and other strategic players
+* 5. Periodic testing of defectors to detect strategy changes
+*/
+function grandmaster2() {
+  const name = 'grandmaster2';
+  const player = new Player(name);
+  
+  // Helper function to calculate defection rate from history
+  const getDefectionRate = (history) => {
+    if (history.length === 0) return 0;
+    return history.filter(m => m === 0).length / history.length;
+  };
+  
+  // Always cooperate on first move (critical for Friedman)
+  if (iteration === 0) {
+    player.forget('opponentHistory');
+    return 1;
+  }
+  
+  // Build opponent history
+  let opponentHistory = player.recall('opponentHistory');
+  opponentHistory = opponentHistory ? opponentHistory.split(',').map(Number) : [];
+  opponentHistory.push(player.getTheirLastPick());
+  player.remember('opponentHistory', opponentHistory.join(','));
+  
+  const lastOpponentMove = player.getTheirLastPick();
+  
+  // Immediate retaliation to any defection (passes Tester's test)
+  if (lastOpponentMove === 0) {
+    // But forgive occasionally against very random opponents
+    const recentHistory = opponentHistory.slice(-10);
+    const defectionRate = getDefectionRate(recentHistory);
+    
+    // If opponent seems very random (40-60% defection rate), use tit-for-tat with forgiveness
+    if (defectionRate > 0.4 && defectionRate < 0.6) {
+      // Forgive 20% of the time against random-like behavior
+      if (player.getRandomBit(20)) return 1;
+    }
+    
+    return 0;
+  }
+  
+  // Track opponent's defection rate
+  const overallDefectionRate = getDefectionRate(opponentHistory);
+  
+  // Against highly cooperative opponents (like alwaysCooperate), always cooperate
+  if (overallDefectionRate < 0.1) return 1;
+  
+  // Against random players (30-70% defection rate), use adaptive strategy
+  if (overallDefectionRate > 0.3 && overallDefectionRate < 0.7) {
+    // Cooperate slightly more to maximize expected value against random
+    return player.getRandomBit(55) ? 1 : 0;
+  }
+  
+  // Against mostly defecting opponents, match their strategy
+  if (overallDefectionRate > 0.7) {
+    // But occasionally test if they'll cooperate
+    if (iteration % 20 === 0) return 1;
+    return 0;
+  }
+  
+  // Default: cooperate (builds score with cooperative players)
+  return 1;
 }
 
 /*
