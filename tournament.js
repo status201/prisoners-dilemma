@@ -5,9 +5,6 @@
 * which holds the different player's strategies
 * and the players array & class
 *
-* TODO
-* - add configurable noise, set a percentage previousPick values randomly (or opposite?)
-*
 */
 const {a, div, li, p, ul, ol, hr, strong, em, span, h1, h2, h3, table, tbody, thead, th, tr, td, input, textarea, select, option, button, label, pre, sub, sup} = van.tags;
 
@@ -17,9 +14,14 @@ const currentPlayers = van.state([players[0],players[1]]); // when tournament is
 const randomNumberOfRounds = van.state(false);
 const roundsNr = van.state(200); // disregarded when randomNumberOfRounds is true
 
-const evolution = van.state(true); // New: evolution mode
+const evolution = van.state(false); // New: evolution mode
 const tournamentsPerElimination = van.state(3); // New: how many tournaments before eliminating loser
 const evolutionProgress = van.state(0); // New: tracks current tournament in evolution cycle
+const enableMutants = van.state(false); // New: enable random mutants
+const mutantsPerCycle = van.state(1); // New: how many mutants to add per cycle
+const mutantCounter = van.state(0); // New: tracks how many mutants have been created
+const maxMutants = van.state(10); // New: maximum number of mutants to create
+const playersTie = van.state(0); // New: tracks if players tied and random was added as tiebreaker
 
 const points01 = van.state(5) // Player defects, Opponent cooperates
 const points11 = van.state(3) // Player & Opponent both cooperate
@@ -31,10 +33,122 @@ const tournamentCounter = van.state(0);
 const loading = van.state(false);
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Helper function to scroll to element
 const scrollToElement = (element) => {
   if (element) {
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
+};
+
+// Helper function to get crypto-based random integer in range [min, max]
+const getRandomInt = (min, max) => {
+  const range = max - min + 1;
+  const bytesNeeded = Math.ceil(Math.log2(range) / 8);
+  const maxValue = Math.pow(256, bytesNeeded);
+  const randomBytes = new Uint8Array(bytesNeeded);
+  
+  let randomValue;
+  do {
+    crypto.getRandomValues(randomBytes);
+    randomValue = 0;
+    for (let i = 0; i < bytesNeeded; i++) {
+      randomValue = randomValue * 256 + randomBytes[i];
+    }
+  } while (randomValue >= maxValue - (maxValue % range));
+  
+  return min + (randomValue % range);
+};
+
+// Helper function to get crypto-based random 0 or 1 with percentage
+const getRandomBit = (percentage = 50) => {
+  const int8 = new Uint8Array(1);
+  crypto.getRandomValues(int8);
+  return int8[0] < (256/100) * percentage ? 1 : 0;
+};
+
+// Helper function to get crypto-based random float between 0 and 1
+const getRandomFloat = () => {
+  const bytes = new Uint32Array(1);
+  crypto.getRandomValues(bytes);
+  return bytes[0] / (0xFFFFFFFF + 1);
+};
+
+// Helper function to generate random mutant strategies
+const createMutant = () => {
+  mutantCounter.val++;
+  const mutantName = `mutant${mutantCounter.val}`;
+  
+  // Random strategy parameters using crypto
+  const cooperateFirst = getRandomBit(50) === 1;
+  const memoryLength = getRandomInt(1, 5); // 1-5 rounds of memory
+  const forgivenessRate = getRandomInt(0, 99); // 0-99% chance to forgive
+  const aggressionThreshold = getRandomFloat(); // 0.0-1.0 defection rate before retaliating
+  const randomness = getRandomInt(0, 29); // 0-29% random behavior
+  
+  // Create the mutant function dynamically
+  window[mutantName] = function() {
+    const name = mutantName;
+    const player = new Player(name);
+    
+    if (iteration === 0) {
+      player.forget('defectHistory');
+      return cooperateFirst ? 1 : 0;
+    }
+    
+    // Track defection history
+    let defectHistory = player.recall('defectHistory');
+    if (!defectHistory) {
+      defectHistory = '';
+    }
+    
+    if (player.getTheirLastPick() === 0) {
+      defectHistory += '0';
+    } else {
+      defectHistory += '1';
+    }
+    
+    // Keep only recent history
+    if (defectHistory.length > memoryLength) {
+      defectHistory = defectHistory.slice(-memoryLength);
+    }
+    player.remember('defectHistory', defectHistory);
+    
+    // Calculate opponent's defection rate
+    const defectCount = (defectHistory.match(/0/g) || []).length;
+    const defectRate = defectCount / defectHistory.length;
+    
+    // Add some randomness
+    if (player.getRandomBit(randomness)) {
+      return player.getRandomBit(50);
+    }
+    
+    // If opponent defected last round
+    if (player.getTheirLastPick() === 0) {
+      // Maybe forgive based on forgiveness rate
+      if (player.getRandomBit(forgivenessRate)) {
+        return 1;
+      }
+      // Check if their overall behavior warrants retaliation
+      if (defectRate > aggressionThreshold) {
+        return 0;
+      }
+      return 1;
+    }
+    
+    // They cooperated last round
+    return 1;
+  };
+  
+  return {
+    name: mutantName,
+    params: {
+      cooperateFirst,
+      memoryLength,
+      forgivenessRate,
+      aggressionThreshold: Math.round(aggressionThreshold * 100),
+      randomness
+    }
+  };
 };
 
 const List = ({items}) => ul(items.map(it => li(it)));
@@ -82,7 +196,7 @@ const TournamentCheckbox = () => div({'class': 'form checkbox'},
 );
 van.add(document.getElementById('settings'), TournamentCheckbox);
 
-// New: Evolution checkbox
+// Evolution checkbox
 const EvolutionCheckbox = () => div({'class': 'form checkbox'},
   input(
     {'type':'checkbox', 'onclick': () => evolution.val = !evolution.val, 'checked': evolution.val, 'id': 'evolutionCheckbox', 'disabled': !tournament.val}
@@ -93,7 +207,7 @@ const EvolutionCheckbox = () => div({'class': 'form checkbox'},
 );
 van.add(document.getElementById('settings'), EvolutionCheckbox);
 
-// New: Tournaments per elimination input
+// Tournaments per elimination input
 const TournamentsPerEliminationInput = () => div({'class': 'form input number ' + `evolution-${evolution.val}`, 'style': evolution.val ? '' : 'display:none'},
   label(
     {'for': 'tournamentsPerEliminationInput', 'class': !tournament.val ? 'disabled' : ''}, 'Tournaments before elimination: '
@@ -102,12 +216,52 @@ const TournamentsPerEliminationInput = () => div({'class': 'form input number ' 
     {
       'type':'number', 'value': `${tournamentsPerElimination.val}`, 
       'onchange': e => tournamentsPerElimination.val = e.target.value,
-      'id': 'tournamentsPerEliminationInput', 'min': 1, 'max': 10,
-      'disabled': !tournament.val
+      'id': 'tournamentsPerEliminationInput', 'min': 1, 'max': 10
     }
   )
 );
 van.add(document.getElementById('settings'), TournamentsPerEliminationInput);
+
+// New: Mutants checkbox
+const MutantsCheckbox = () => div({'class': 'form checkbox', 'style': evolution.val ? '' : 'display:none'},
+  input(
+    {'type':'checkbox', 'onclick': () => enableMutants.val = !enableMutants.val, 'checked': enableMutants.val, 'id': 'mutantsCheckbox', 'disabled': !evolution.val}
+  ), 
+  label(
+    {'for': 'mutantsCheckbox'}, 'Enable random mutants', ` (${enableMutants.val})`
+  )
+);
+van.add(document.getElementById('settings'), MutantsCheckbox);
+
+// New: Mutants per cycle input
+const MutantsPerCycleInput = () => div({'class': 'form input number', 'style': evolution.val && enableMutants.val ? '' : 'display:none'},
+  label(
+    {'for': 'mutantsPerCycleInput'}, 'Mutants per elimination cycle: '
+  ),                                
+  input(
+    {
+      'type':'number', 'value': `${mutantsPerCycle.val}`, 
+      'onchange': e => mutantsPerCycle.val = e.target.value,
+      'id': 'mutantsPerCycleInput', 'min': 1, 'max': 5
+    }
+  )
+);
+van.add(document.getElementById('settings'), MutantsPerCycleInput);
+
+// New: Max mutants input
+const MaxMutantsInput = () => div({'class': 'form input number', 'style': evolution.val && enableMutants.val ? '' : 'display:none'},
+  label(
+    {'for': 'maxMutantsInput'}, 'Maximum total mutants: '
+  ),                                
+  input(
+    {
+      'type':'number', 'value': `${maxMutants.val}`, 
+      'onchange': e => maxMutants.val = e.target.value,
+      'id': 'maxMutantsInput', 'min': 1, 'max': 50
+    }
+  )
+);
+van.add(document.getElementById('settings'), MaxMutantsInput);
 
 const PlayersMultipleSelect = () => div(
   {
@@ -243,8 +397,6 @@ let playersScore = {};
 let playersOpponentScore = {};
 let playersScoreArray = [];
 
-// A tie happened
-let playersTie = 0;
 
 
 function playTournament(rounds) {
@@ -359,7 +511,7 @@ function fight(){
   if (randomNumberOfRounds.val) {
     const roundsMin = Math.ceil(parseInt(roundsNr.val) - (0.1 * roundsNr.val));
     const roundsMax = Math.ceil(parseInt(roundsNr.val) + (0.1 * roundsNr.val));
-    rounds = Math.round(Math.random() * (roundsMax - roundsMin) + roundsMin);
+    rounds = getRandomInt(roundsMin, roundsMax);
   } else {
     rounds = roundsNr.val;
   }
@@ -372,7 +524,7 @@ function fight(){
       debugInfoText
     );
     //van.add(document.getElementById('info'), DebugInfo);
-    const infoPane = document.getElementById('info');
+	const infoPane = document.getElementById('info');
     infoPane.prepend(DebugInfo());
     
     // Display results
@@ -396,8 +548,8 @@ function fight(){
         // First pass: find the lowest score
         for (let i = 0; i < playersScoreArray.length; i++) {
           const score = playersScoreArray[i][1]; // Individual score
-          
-          if (score < lowestScore && !(playersTie === 1 && (activePlayers.val[i] === 'random' && activePlayers.val.length > 2))) {
+          // Updated condition to make random lose in final tournament after tie
+          if (score < lowestScore && !(playersTie.val === 1 && (activePlayers.val[i] === 'random' && activePlayers.val.length > 2))) {
             lowestScore = score;
             loserIndex = i;
             loserCount = 1;
@@ -410,6 +562,9 @@ function fight(){
         const allScoresSame = playersScoreArray.every(player => player[1] === playersScoreArray[0][1]);
         
         if (allScoresSame && activePlayers.val.length > 1) {
+          // Set playersTie flag before adding random player
+          playersTie.val = 1;
+          
           // All players are tied - add random player as tiebreaker
           const TiebreakerMessage = () => div(
             {class: 'tiebreaker-message'},
@@ -425,8 +580,6 @@ function fight(){
               scrollToElement(messages[messages.length - 1]);
             }
           });
-          
-          playersTie = 1;
           
           // Add random player if not already present
           if (!activePlayers.val.includes('random')) {
@@ -446,19 +599,18 @@ function fight(){
           return true;
         }
         
-        playerTie = 0;
-        
         if (loserIndex !== -1) {
           const eliminatedPlayer = activePlayers.val[loserIndex];
           
           // Show elimination message
-          const EliminationMessage = () => div(
+          const eliminationElement = div(
             {class: 'elimination-message'},
             strong('❌ ELIMINATED: '),
             span(eliminatedPlayer),
-            span(` (Score: ${lowestScore})`)
+            span(` (Score: ${lowestScore})`),
+            loserCount > 1 ? span(` - One of ${loserCount} players tied for last`) : ''
           );
-          van.add(document.getElementById('result'), EliminationMessage);
+          van.add(document.getElementById('result'), eliminationElement);
           
           // Scroll to elimination message
           sleep(100).then(() => {
@@ -472,6 +624,39 @@ function fight(){
           const newActivePlayers = activePlayers.val.filter((_, index) => index !== loserIndex);
           activePlayers.val = newActivePlayers;
           
+          // Add mutants if enabled
+          if (enableMutants.val && newActivePlayers.length > 1 && mutantCounter.val < parseInt(maxMutants.val)) {
+            const mutantsToAdd = parseInt(mutantsPerCycle.val);
+            const newMutants = [];
+            
+            for (let i = 0; i < mutantsToAdd; i++) {
+              const mutant = createMutant();
+              newMutants.push(mutant);
+              activePlayers.val = [...activePlayers.val, mutant.name];
+            }
+            
+            // Show mutant message
+            const mutantDetails = newMutants.map(m => 
+              `${m.name} (First: ${m.params.cooperateFirst ? 'Coop' : 'Defect'}, Memory: ${m.params.memoryLength}, Forgive: ${m.params.forgivenessRate}%, Aggression: ${m.params.aggressionThreshold}%, Random: ${m.params.randomness}%)`
+            ).join('\n');
+            
+            const MutantMessage = () => div(
+              {class: 'mutant-message'},
+              strong('🧬 MUTANTS ADDED: '),
+              span(`${mutantsToAdd} new random ${mutantsToAdd === 1 ? 'strategy' : 'strategies'}`),
+              pre(mutantDetails)
+            );
+            van.add(document.getElementById('result'), MutantMessage);
+            
+            // Scroll to mutant message
+            sleep(100).then(() => {
+              const messages = document.getElementsByClassName('mutant-message');
+              if (messages.length > 0) {
+                scrollToElement(messages[messages.length - 1]);
+              }
+            });
+          }
+          
           // Reset evolution progress
           evolutionProgress.val = 0;
           
@@ -479,8 +664,8 @@ function fight(){
           if (newActivePlayers.length === 1) {
             const winnerElement = div(
               {class: 'winner-message'},
-              h2({style: 'margin: 0; color: #2e7d32;'}, '🏆 EVOLUTION WINNER 🏆'),
-              p({style: 'font-size: 24px; margin: 10px 0;'}, strong(newActivePlayers[0])),
+              h2('🏆 EVOLUTION WINNER 🏆'),
+              p(strong(newActivePlayers[0])),
               p('Survived ', tournamentCounter.val, ' tournaments!')
             );
             van.add(document.getElementById('result'), winnerElement);
@@ -498,13 +683,12 @@ function fight(){
           }
           
           // Continue with next tournament automatically
-          if (newActivePlayers.length > 1) {
-            const ContinueMessage = () => p(
-              {class:'continue-message'},
-              `${newActivePlayers.length} players remaining. Next tournament starting...`
+          if (activePlayers.val.length > 1) {
+            const continueElement = p(
+              {class: 'continue-message'},
+              `${activePlayers.val.length} players remaining. Next tournament starting...`
             );
-            van.add(document.getElementById('result'), ContinueMessage);
-            playerTie = 0;
+            van.add(document.getElementById('result'), continueElement);
             
             // Reset scores for next tournament cycle
             playersScoreArray.length = 0;
@@ -534,6 +718,7 @@ function fight(){
             scrollToElement(messages[messages.length - 1]);
           }
         });
+		
         // Continue automatically
         sleep(1000).then(() => {
           tournamentCounter.val++;
@@ -563,6 +748,8 @@ function playButtonClick(){
   // Reset evolution progress when starting fresh
   if (tournamentCounter.val === 1 && evolution.val) {
     evolutionProgress.val = 0;
+    mutantCounter.val = 0; // Reset mutant counter
+    playersTie.val = 0; // Reset tie flag
     // Reset active players to all selected players
     const selectedOptions = Array.from(document.querySelectorAll('#settings select[multiple] option:checked'));
     if (selectedOptions.length > 0) {
@@ -577,10 +764,16 @@ function playButtonClick(){
 function clearResults() {
   tournamentCounter.val = 0;
   evolutionProgress.val = 0;
+  mutantCounter.val = 0;
+  playersTie.val = 0; // Reset tie flag
   playersScoreArray.length = 0;
   playersScore = {};
   playersOpponentScore = {};
-  playersTie = 0;
+  
+  // Clean up mutant functions
+  for (let i = 1; i <= mutantCounter.val; i++) {
+    delete window[`mutant${i}`];
+  }
   
   // Reset active players to all selected
   const selectedOptions = Array.from(document.querySelectorAll('#settings select[multiple] option:checked'));
@@ -617,7 +810,11 @@ function clearResults() {
   let tiebreakers = document.getElementsByClassName('tiebreaker-message');
   while(tiebreakers.length > 0) {
      tiebreakers[0].parentNode.removeChild(tiebreakers[0]);
-  }  
+  }
+  let mutants = document.getElementsByClassName('mutant-message');
+  while(mutants.length > 0) {
+     mutants[0].parentNode.removeChild(mutants[0]);
+  }
   let maxScores = document.querySelectorAll('#settings hr');
   maxScores.forEach(hr => {
     if (hr.nextSibling) hr.nextSibling.remove();
@@ -661,3 +858,4 @@ function highlightWinners(table) {
     }
   }
 }
+
