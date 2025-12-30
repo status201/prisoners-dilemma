@@ -824,38 +824,40 @@ function clearResults() {
 }
 
 function highlightWinners(table) {
-  if (table === null) return;
-
-  let thead = table.tHead,
-    tbody = table.tBodies[0],
-    rowCount = tbody.rows.length,
-    colCount = thead.rows[0].cells.length,
-    maxValues = new Array(colCount),
-    maxCells = new Array(colCount),
-    i = rowCount - 1,
-    j = colCount - 1,
-    cell,
-    value;
-
-  for (; i > -1; i--) {
-    for (; j > -1; j--) {
-      cell = tbody.rows[i].cells[j];
-      value = parseFloat(cell.innerHTML);
-      if (value.toString() === "NaN") continue;
-      if (value > (maxValues[j] === undefined ? -1 : maxValues[j])) {
-        maxValues[j] = value;
-        maxCells[j] = [i,j];
+  if (!table) return;
+  
+  const tbody = table.tBodies[0];
+  const colCount = table.tHead.rows[0].cells.length;
+  const columnStats = Array.from({ length: colCount }, () => ({ 
+    max: -Infinity, 
+    min: Infinity, 
+    maxCell: null, 
+    minCell: null 
+  }));
+  
+  Array.from(tbody.rows).forEach(row => {
+    Array.from(row.cells).forEach((cell, colIndex) => {
+      const value = parseFloat(cell.innerHTML);
+      if (isNaN(value)) return;
+      
+      const stats = columnStats[colIndex];
+      if (value > stats.max) {
+        stats.max = value;
+        stats.maxCell = cell;
       }
+      if (value < stats.min) {
+        stats.min = value;
+        stats.minCell = cell;
+      }
+    });
+  });
+  
+  columnStats.forEach(stats => {
+    if (stats.maxCell) stats.maxCell.classList.add('max');
+    if (stats.minCell && stats.minCell !== stats.maxCell) {
+      stats.minCell.classList.add('min');
     }
-    j = colCount - 1;
-  }
-
-  for (; j > -1; j--) {
-    if (maxCells[j] !== undefined){
-      tbody.rows[maxCells[j][0]].cells[
-        maxCells[j][1]
-      ].setAttribute("class", "max");
-    }
-  }
+  });
 }
+
 
