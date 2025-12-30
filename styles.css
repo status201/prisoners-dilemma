@@ -33,6 +33,13 @@ table.generated {
 .generated tr:hover td.max {
   background-color: rgba(134,196,154,0.35);
 }
+.generated tr td.min {
+  background-color: rgba(163,66,98,0.20);
+  font-weight: bold;
+}
+.generated tr:hover td.min {
+  background-color: rgba(196,134,154,0.25);
+}
 th {
   text-align: left;
   padding: 5px 10px;
@@ -415,3 +422,4 @@ hr {
     padding: 8px 10px;
   }
 }
+
