@@ -202,7 +202,7 @@ const EvolutionCheckbox = () => div({'class': 'form checkbox'},
     {'type':'checkbox', 'onclick': () => evolution.val = !evolution.val, 'checked': evolution.val, 'id': 'evolutionCheckbox', 'disabled': !tournament.val}
   ), 
   label(
-    {'for': 'evolutionCheckbox'}, 'Evolution (eliminate losers)', ` (${evolution.val})`
+    {'for': 'evolutionCheckbox', 'class': !tournament.val ? 'disabled' : ''}, 'Evolution (eliminate losers)', ` (${evolution.val})`
   )
 );
 van.add(document.getElementById('settings'), EvolutionCheckbox);
@@ -210,7 +210,7 @@ van.add(document.getElementById('settings'), EvolutionCheckbox);
 // Tournaments per elimination input
 const TournamentsPerEliminationInput = () => div({'class': 'form input number ' + `evolution-${evolution.val}`, 'style': evolution.val ? '' : 'display:none'},
   label(
-    {'for': 'tournamentsPerEliminationInput'}, 'Tournaments before elimination: '
+    {'for': 'tournamentsPerEliminationInput', 'class': !tournament.val ? 'disabled' : ''}, 'Tournaments before elimination: '
   ),                                
   input(
     {
@@ -523,7 +523,9 @@ function fight(){
     const DebugInfo = () => pre({class:'debug-tournament'},
       debugInfoText
     );
-    van.add(document.getElementById('info'), DebugInfo);
+    //van.add(document.getElementById('info'), DebugInfo);
+	const infoPane = document.getElementById('info');
+    infoPane.prepend(DebugInfo());
     
     // Display results
     van.add(document.getElementById('result'), Table({
@@ -565,9 +567,9 @@ function fight(){
           
           // All players are tied - add random player as tiebreaker
           const TiebreakerMessage = () => div(
-            {class: 'tiebreaker-message', style: 'background: #fff3e0; padding: 10px; margin: 10px 0; border-left: 4px solid #ff9800;'},
+            {class: 'tiebreaker-message'},
             strong('⚖️ TIE DETECTED: '),
-            span(`All ${activePlayers.val.length} players tied with score ${playersScoreArray[0][1]}. Adding "random" player as tiebreaker!`)
+            span(`All ${loserCount} players tied with score ${lowestScore}. Adding "random" player as tiebreaker!`)
           );
           van.add(document.getElementById('result'), TiebreakerMessage);
           
@@ -602,7 +604,7 @@ function fight(){
           
           // Show elimination message
           const eliminationElement = div(
-            {class: 'elimination-message', style: 'background: #ffebee; padding: 10px; margin: 10px 0; border-left: 4px solid #f44336;'},
+            {class: 'elimination-message'},
             strong('❌ ELIMINATED: '),
             span(eliminatedPlayer),
             span(` (Score: ${lowestScore})`),
@@ -661,9 +663,9 @@ function fight(){
           // Check if we have a winner
           if (newActivePlayers.length === 1) {
             const winnerElement = div(
-              {class: 'winner-message', style: 'background: #e8f5e9; padding: 20px; margin: 20px 0; border: 3px solid #4caf50; text-align: center;'},
-              h2({style: 'margin: 0; color: #2e7d32;'}, '🏆 EVOLUTION WINNER 🏆'),
-              p({style: 'font-size: 24px; margin: 10px 0;'}, strong(newActivePlayers[0])),
+              {class: 'winner-message'},
+              h2('🏆 EVOLUTION WINNER 🏆'),
+              p(strong(newActivePlayers[0])),
               p('Survived ', tournamentCounter.val, ' tournaments!')
             );
             van.add(document.getElementById('result'), winnerElement);
@@ -683,7 +685,7 @@ function fight(){
           // Continue with next tournament automatically
           if (activePlayers.val.length > 1) {
             const continueElement = p(
-              {class: 'continue-message', style: 'font-style: italic; color: #666; margin: 10px 0;'},
+              {class: 'continue-message'},
               `${activePlayers.val.length} players remaining. Next tournament starting...`
             );
             van.add(document.getElementById('result'), continueElement);
@@ -704,7 +706,7 @@ function fight(){
       } else {
         // Show progress towards elimination
         const progressElement = p(
-          {class: 'progress-message', style: 'font-style: italic; color: #666; margin: 10px 0;'},
+          {class: 'progress-message'},
           `Evolution progress: ${evolutionProgress.val}/${tournamentsPerElimination.val} tournaments until elimination`
         );
         van.add(document.getElementById('result'), progressElement);
@@ -856,3 +858,4 @@ function highlightWinners(table) {
     }
   }
 }
+
